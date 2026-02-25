@@ -1,40 +1,40 @@
-# Local Coding Agent on OOD
+# Local Coding Agent Setup
 
-Minimal setup for local VS Code + Continue using a remote OOD GPU model with Ollama.
+Minimal setup for local VS Code + Continue using a remote GPU model with Ollama.
 
 ## Stack
 
 - Local: VS Code + Continue
-- Remote: OOD + SLURM + `ollama serve`
-- Model: `qwen3-coder:30b-a3b-q4_K_M`
+- Remote: HPC/cluster scheduler + `ollama serve`
+- Model: `<model-name>`
 - Tunnel: `localhost:11435 -> remote 127.0.0.1:11434`
 
 ## Prerequisites
 
-- OOD/SLURM access with GPU (`gpu:l40s.24g:1`)
+- Cluster access with GPU resources
 - Continue extension installed in VS Code
-- Ollama installed in user space on OOD (`$HOME/.local/bin/ollama`)
+- Ollama installed in user space on the remote node (`$HOME/.local/bin/ollama`)
 
 ## Quick Start
 
-### 1) Start Ollama on OOD (2 days, general partition)
+### 1) Start Ollama on remote GPU node
 
 ```bash
-srun -p general --gres=gpu:l40s.24g:1 --cpus-per-task=12 --mem=64G --time=2-00:00:00 bash -lc '$HOME/.local/bin/ollama serve'
+srun -p <partition> --gres=gpu:<gpu-type>:1 --cpus-per-task=<cpu-count> --mem=<memory> --time=<time-limit> bash -lc '$HOME/.local/bin/ollama serve'
 ```
 
 ### 2) Pull model (one time)
 
 ```bash
-$HOME/.local/bin/ollama pull qwen3-coder:30b-a3b-q4_K_M
+$HOME/.local/bin/ollama pull <model-name>
 ```
 
 ### 3) Create local SSH tunnel
 
-Replace node name with your current worker node from `squeue`:
+Replace placeholders with your own username, jump host, and worker node:
 
 ```bash
-ssh -N -L 11435:127.0.0.1:11434 -J pndagiji@ood.urmc-sh.rochester.edu pndagiji@smdodwork03
+ssh -N -L 11435:127.0.0.1:11434 -J <username>@<jump-host> <username>@<worker-node>
 ```
 
 ### 4) Configure Continue
@@ -44,13 +44,13 @@ name: Local Config
 version: 1.0.0
 schema: v1
 models:
-  - name: qwen3-coder-local
+  - name: local-ollama-model
     provider: ollama
-    model: qwen3-coder:30b-a3b-q4_K_M
+    model: <model-name>
     apiBase: http://127.0.0.1:11435
 ```
 
-Then reload VS Code window and select `qwen3-coder-local` in Continue.
+Then reload VS Code window and select `local-ollama-model` in Continue.
 
 ## Verification
 
@@ -63,7 +63,7 @@ curl http://127.0.0.1:11435/api/tags
 ### Generation check
 
 ```bash
-curl -s http://127.0.0.1:11435/api/generate -d '{"model":"qwen3-coder:30b-a3b-q4_K_M","prompt":"Respond with exactly READY","stream":false}'
+curl -s http://127.0.0.1:11435/api/generate -d '{"model":"<model-name>","prompt":"Respond with exactly READY","stream":false}'
 ```
 
 Expected response contains `"response":"READY"`.
@@ -80,7 +80,7 @@ srun --overlap --jobid=<JOB_ID> -N1 -n1 bash -lc 'nvidia-smi --query-gpu=timesta
 
 Typical state:
 
-- ~19 GB VRAM used when model is loaded
+- VRAM usage increases when model is loaded
 - GPU utilization spikes while prompts run
 
 ## Troubleshooting
